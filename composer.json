@@ -1,0 +1,22 @@
+{
+    "name": "trorg/yii2-redis",
+    "minimum-stability": "dev",
+    "type": "yii2-extension",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "TroRg"
+        }
+    ],
+    "require": {
+        "php": ">=7.1",
+        "ext-redis": "*",
+        "yiisoft/yii2": "~2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "trorg\\yii2\\redis\\": "src/"
+        }
+    }
+}
+
