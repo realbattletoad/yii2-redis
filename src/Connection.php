@@ -1,17 +1,22 @@
 <?php
 
-namespace trorg\yii2\redis;
+namespace realbattletoad\yii2\redis;
 
+use Redis;
+use RedisArray;
+use RedisCluster;
+use RedisClusterException;
+use yii\base\Component;
 use yii\helpers\ArrayHelper;
 
-class Connection extends \yii\base\Component
+class Connection extends Component
 {
     /**
      * @var array list of hostname:port
      */
     public $servers = [];
     /**
-     * @var int default database. RedisCluster has only 1 databse with index 0.
+     * @var int default database. RedisCluster has only 1 database with index 0.
      * @see https://redis.io/topics/cluster-spec
      */
     public $database = 0;
@@ -43,7 +48,7 @@ class Connection extends \yii\base\Component
     public $clusterOptions = [];
 
     /**
-     * @var \RedisCluster|\RedisArray|\Redis redis client
+     * @var RedisCluster|RedisArray|Redis redis client
      */
     private $_client;
     /**
@@ -54,13 +59,17 @@ class Connection extends \yii\base\Component
         parent::init();
         switch($this->cluster) {
         case 'redis':
-            $this->_client = new \RedisCluster(NULL,
-                $this->servers,
-                (float) $this->timeout,
-                (float) $this->readTimeout,
-                (bool) $this->persistent,
-                $this->password
-            );
+            try {
+                $this->_client = new RedisCluster(
+                    null,
+                    $this->servers,
+                    (float)$this->timeout,
+                    (float)$this->readTimeout,
+                    (bool)$this->persistent,
+                    $this->password
+                );
+            } catch (RedisClusterException $e) {
+            }
             break;
         case 'array':
             $options = [
@@ -71,17 +80,17 @@ class Connection extends \yii\base\Component
             ];
             $options = ArrayHelper::merge($options, $this->clusterOptions);
 
-            $this->_client = new \RedisArray($this->servers, $options);
+            $this->_client = new RedisArray($this->servers, $options);
             if ($this->database > 0) {
                 $multi = $this->_client->multi();
-                foreach ($servers as $server) {
+                foreach ($this->servers as $server) {
                     $multi->rawcommand(explode(":", $server), 'SELECT', $this->database);
                 }
                 $multi->exec();
             }
             break;
         default:
-            $this->_client = new \Redis();
+            $this->_client = new Redis();
             list($host, $port) = explode(":", $this->servers[0]);
             $fn = $this->persistent ? 'pconnect' : 'connect';
             $this->_client->{$fn}($host, (int)$port);
@@ -91,7 +100,7 @@ class Connection extends \yii\base\Component
         }
     }
     /**
-     * @return \RedisCluster|\RedisArray|\Redis
+     * @return RedisCluster|RedisArray|Redis
      */
     public function getClient()
     {
@@ -100,9 +109,9 @@ class Connection extends \yii\base\Component
     /**
      * {@inheritdoc}
      */
-    public function __call($commandID, $arguments)
+    public function __call($name, $params)
     {
-        return $this->_client->{$commandID}(...$arguments);
+        return $this->_client->{$name}(...$params);
     }
     /**
      *  Flush database regardless connection type
@@ -128,7 +137,7 @@ class Connection extends \yii\base\Component
      */
     private function _isCluster(): bool
     {
-        return $this->_client instanceof \RedisCluster;
+        return $this->_client instanceof RedisCluster;
     }
     /**
      * Check if connection is RedisArray
@@ -136,8 +145,9 @@ class Connection extends \yii\base\Component
      */
     private function _isArray(): bool
     {
-        return $this->_client instanceof \RedisArray;
+        return $this->_client instanceof RedisArray;
     }
+
     /**
      * Check if connection is Redis (standalone server)
      * @return bool

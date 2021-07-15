@@ -1,6 +1,6 @@
 <?php
 
-namespace trorg\yii2\redis;
+namespace realbattletoad\yii2\redis;
 
 use Yii;
 

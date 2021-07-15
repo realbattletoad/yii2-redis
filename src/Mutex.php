@@ -1,6 +1,6 @@
 <?php
 
-namespace trorg\yii2\redis;
+namespace realbattletoad\yii2\redis;
 
 use Yii;
 use yii\base\InvalidConfigException;
@@ -91,7 +91,7 @@ LUA;
                 1,
                 $this->calculateKey($name),
                 $this->_lockValues[$name]
-            ])) {
+            )) {
             return false;
         } else {
             unset($this->_lockValues[$name]);
