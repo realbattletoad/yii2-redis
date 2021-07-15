@@ -51,54 +51,56 @@ class Connection extends Component
      * @var RedisCluster|RedisArray|Redis redis client
      */
     private $_client;
+
     /**
      * {@inheritdoc}
      */
     public function init()
     {
         parent::init();
-        switch($this->cluster) {
-        case 'redis':
-            try {
-                $this->_client = new RedisCluster(
-                    null,
-                    $this->servers,
-                    (float)$this->timeout,
-                    (float)$this->readTimeout,
-                    (bool)$this->persistent,
-                    $this->password
-                );
-            } catch (RedisClusterException $e) {
-            }
-            break;
-        case 'array':
-            $options = [
-                'connect_timeout' => $this->timeout,
-                'read_timeout' => $this->readTimeout,
-                'pconnect' => $this->persistent,
-                'auth' => $this->password,
-            ];
-            $options = ArrayHelper::merge($options, $this->clusterOptions);
-
-            $this->_client = new RedisArray($this->servers, $options);
-            if ($this->database > 0) {
-                $multi = $this->_client->multi();
-                foreach ($this->servers as $server) {
-                    $multi->rawcommand(explode(":", $server), 'SELECT', $this->database);
+        switch ($this->cluster) {
+            case 'redis':
+                try {
+                    $this->_client = new RedisCluster(
+                        null,
+                        $this->servers,
+                        (float)$this->timeout,
+                        (float)$this->readTimeout,
+                        (bool)$this->persistent,
+                        $this->password
+                    );
+                } catch (RedisClusterException $e) {
                 }
-                $multi->exec();
-            }
-            break;
-        default:
-            $this->_client = new Redis();
-            list($host, $port) = explode(":", $this->servers[0]);
-            $fn = $this->persistent ? 'pconnect' : 'connect';
-            $this->_client->{$fn}($host, (int)$port);
-            if ($this->database > 0) {
-                $this->_client->select($this->database);
-            }
+                break;
+            case 'array':
+                $options = [
+                    'connect_timeout' => $this->timeout,
+                    'read_timeout' => $this->readTimeout,
+                    'pconnect' => $this->persistent,
+                    'auth' => $this->password,
+                ];
+                $options = ArrayHelper::merge($options, $this->clusterOptions);
+
+                $this->_client = new RedisArray($this->servers, $options);
+                if ($this->database > 0) {
+                    $multi = $this->_client->multi();
+                    foreach ($this->servers as $server) {
+                        $multi->rawcommand(explode(":", $server), 'SELECT', $this->database);
+                    }
+                    $multi->exec();
+                }
+                break;
+            default:
+                $this->_client = new Redis();
+                list($host, $port) = explode(":", $this->servers[0]);
+                $fn = $this->persistent ? 'pconnect' : 'connect';
+                $this->_client->{$fn}($host, (int)$port);
+                if ($this->database > 0) {
+                    $this->_client->select($this->database);
+                }
         }
     }
+
     /**
      * @return RedisCluster|RedisArray|Redis
      */
@@ -106,6 +108,7 @@ class Connection extends Component
     {
         return $this->_client;
     }
+
     /**
      * {@inheritdoc}
      */
@@ -113,6 +116,7 @@ class Connection extends Component
     {
         return $this->_client->{$name}(...$params);
     }
+
     /**
      *  Flush database regardless connection type
      *
@@ -131,6 +135,7 @@ class Connection extends Component
 
         return true;
     }
+
     /**
      * Check if connection is RedisCluster
      * @return bool
@@ -139,6 +144,7 @@ class Connection extends Component
     {
         return $this->_client instanceof RedisCluster;
     }
+
     /**
      * Check if connection is RedisArray
      * @return bool

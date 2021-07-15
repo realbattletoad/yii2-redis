@@ -2,7 +2,7 @@
 
 namespace realbattletoad\yii2\redis;
 
-use Yii;
+use Closure;
 use yii\base\InvalidConfigException;
 use yii\caching\ArrayCache;
 use yii\di\Instance;
@@ -14,7 +14,7 @@ class Cache extends \yii\caching\Cache
      */
     public $redis = 'redis';
     /**
-     * @var \yii\caching\ArrayCache top level cache, usefull to prevent
+     * @var ArrayCache top level cache, usefull to prevent
      * repeating queries within application lifecycle
      */
     public $arrayCache;
@@ -22,14 +22,18 @@ class Cache extends \yii\caching\Cache
      * @var bool allow to automatically get/set from top level cache
      */
     public $autoArrayCache = false;
+
     /**
      * {@inheritdoc}
+     * @throws InvalidConfigException
      */
     public function init()
     {
         parent::init();
+
         $this->redis = Instance::ensure($this->redis, Connection::class);
     }
+
     /**
      * Array cache.
      * Cache data into ArrayCache, which live only 1 application cycle.
@@ -50,23 +54,29 @@ class Cache extends \yii\caching\Cache
      * @param string|array $key cache key or keys used in redis command
      * @param closure $fn function which do redis call and
      * @return mixed
+     * @throws InvalidConfigException
      */
-    public function arcache($key, \Closure $fn)
+    public function arcache($key, Closure $fn)
     {
         if ($this->arrayCache && $this->arrayCache instanceof ArrayCache) {
-            return $this->arrayCache->getOrSet($key, function () use ($fn) {
-                return $fn();
-            });
+            return $this->arrayCache->getOrSet(
+                $key,
+                function () use ($fn) {
+                    return $fn();
+                }
+            );
         }
-        throw new \InvalidConfigException('To use this methid you should configure "arrayCache".');
+        throw new InvalidConfigException('To use this methid you should configure "arrayCache".');
     }
+
     /**
      * {@inheritdoc}
      */
-    public function exists($key)
+    public function exists($key): bool
     {
-        return (bool) $this->redis->exists($this->buildKey($key));
+        return (bool)$this->redis->exists($this->buildKey($key));
     }
+
     /**
      * @inheritdoc
      */
@@ -74,10 +84,11 @@ class Cache extends \yii\caching\Cache
     {
         return $this->redis->get($key);
     }
+
     /**
      * @inheritdoc
      */
-    protected function getValues($keys)
+    protected function getValues($keys): array
     {
         $result = [];
         $i = 0;
@@ -88,18 +99,20 @@ class Cache extends \yii\caching\Cache
 
         return $result;
     }
+
     /**
      * @inheritdoc
      */
-    protected function setValue($key, $value, $expire)
+    protected function setValue($key, $value, $expire): bool
     {
         if ($expire == 0) {
-            return (bool) $this->redis->set($key, $value);
+            return (bool)$this->redis->set($key, $value);
         } else {
-            $expire = (int) ($expire * 1000);
-            return (bool) $this->redis->pSetEx($key, $expire, $value);
+            $expire = (int)($expire * 1000);
+            return (bool)$this->redis->pSetEx($key, $expire, $value);
         }
     }
+
     /**
      * @inheritdoc
      */
@@ -107,7 +120,7 @@ class Cache extends \yii\caching\Cache
     {
         $result = $this->redis->mset($data);
         if ($expire > 0) {
-            $expire = (int) $expire * 1000;
+            //$expire = (int) $expire * 1000;
             $multi = $this->redis->multi();
             foreach ($data as $k => $v) {
                 $multi->pexpire($k, $v);
@@ -116,46 +129,41 @@ class Cache extends \yii\caching\Cache
         }
         return $result;
     }
+
     /**
      * @inheritdoc
      */
-    protected function addValue($key, $value, $expire)
+    protected function addValue($key, $value, $expire): bool
     {
         if ($expire == 0) {
-            return (bool) $this->redis->setNx($key, $value);
+            return (bool)$this->redis->setNx($key, $value);
         } else {
-            $expire = (int) ($expire * 1000);
-            return (bool) $this->redis->set($key, $value, ['nx', 'px' => $expire]);
+            $expire = (int)($expire * 1000);
+            return (bool)$this->redis->set($key, $value, ['nx', 'px' => $expire]);
         }
     }
+
     /**
      * @inheritdoc
      */
-    protected function deleteValue($key)
+    protected function deleteValue($key): bool
     {
-        return (bool) $this->redis->del($key);
+        return (bool)$this->redis->del($key);
     }
+
     /**
      * @inheritdoc
      */
-    protected function flushValues()
+    protected function flushValues(): bool
     {
         return $this->redis->flushdb();
-        $result = true;
-        foreach ($this->redis->servers as $server) {
-            foreach ($masters as $master) {
-            }
-        }
-        $masters = $this->redis->_masters();
-
-        return true;
     }
 
     /**
      * Array cache decorator
      * @param string $key cache key used in redis command
      * @param closure $fn function which do redis call and
-     * return result.
+     * @return Closure
      *
      * Example:
      * ```php
@@ -164,10 +172,11 @@ class Cache extends \yii\caching\Cache
      * };
      * $this->tlcache($key, $fn);
      * ```
+     * @throws InvalidConfigException
      */
-    private function tlcache(string $key, \Closure $fn)
+    private function tlcache(string $key, Closure $fn): Closure
     {
-        if ($this->autoArrayCache && Instance::ensure($this->arrayCache, ArrayCache)) {
+        if ($this->autoArrayCache && Instance::ensure($this->arrayCache, ArrayCache::class)) {
             return $this->arcache($key, $fn);
         }
         return $fn;

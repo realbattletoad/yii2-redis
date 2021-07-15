@@ -3,6 +3,7 @@
 namespace realbattletoad\yii2\redis;
 
 use Yii;
+use yii\base\InvalidConfigException;
 
 /**
  * This is a 99.99% copy of https://github.com/yiisoft/yii2-redis/blob/master/src/Session.php
@@ -41,7 +42,9 @@ class Session extends \yii\web\Session
             $this->redis = Yii::createObject($this->redis);
         }
         if (!$this->redis instanceof Connection) {
-            throw new InvalidConfigException("Session::redis must be either a Redis connection instance or the application component ID of a Redis connection.");
+            throw new InvalidConfigException(
+                "Session::redis must be either a Redis connection instance or the application component ID of a Redis connection."
+            );
         }
         if ($this->keyPrefix === null) {
             $this->keyPrefix = substr(md5(Yii::$app->id), 0, 5);
@@ -54,7 +57,7 @@ class Session extends \yii\web\Session
      * This method overrides the parent implementation and always returns true.
      * @return bool whether to use custom storage.
      */
-    public function getUseCustomStorage()
+    public function getUseCustomStorage(): bool
     {
         return true;
     }
@@ -65,7 +68,7 @@ class Session extends \yii\web\Session
      * @param string $id session ID
      * @return string the session data
      */
-    public function readSession($id)
+    public function readSession(string $id): string
     {
         $data = $this->redis->get($this->calculateKey($id));
         return $data === false || $data === null ? '' : $data;
@@ -78,9 +81,9 @@ class Session extends \yii\web\Session
      * @param string $data session data
      * @return bool whether session write is successful
      */
-    public function writeSession($id, $data)
+    public function writeSession(string $id, string $data): bool
     {
-        return (bool) $this->redis->setEx($this->calculateKey($id), $this->getTimeout(), $data);
+        return (bool)$this->redis->setEx($this->calculateKey($id), $this->getTimeout(), $data);
     }
 
     /**
@@ -89,18 +92,19 @@ class Session extends \yii\web\Session
      * @param string $id session ID
      * @return bool whether session is destroyed successfully
      */
-    public function destroySession($id)
+    public function destroySession(string $id): bool
     {
         $this->redis->del($this->calculateKey($id));
         // @see https://github.com/yiisoft/yii2-redis/issues/82
         return true;
     }
+
     /**
      * Generates a unique key used for storing session data in cache.
      * @param string $id session variable name
      * @return string a safe cache key associated with the session variable name
      */
-    protected function calculateKey($id)
+    protected function calculateKey(string $id): string
     {
         return $this->keyPrefix . md5(json_encode([__CLASS__, $id]));
     }

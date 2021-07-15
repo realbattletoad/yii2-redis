@@ -11,7 +11,8 @@
     "require": {
         "php": ">=7.2",
         "ext-redis": "*",
-        "yiisoft/yii2": "~2.0"
+        "yiisoft/yii2": "~2.0",
+        "ext-json": "*"
     },
     "autoload": {
         "psr-4": {
