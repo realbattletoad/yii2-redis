@@ -5,16 +5,18 @@ namespace realbattletoad\yii2\redis;
 use Redis;
 use RedisArray;
 use RedisCluster;
+use RedisSentinel;
 use RedisClusterException;
-use yii\base\Component;
 use yii\helpers\ArrayHelper;
 
-class Connection extends Component
+class Connection extends yii\redis\Connection
 {
     /**
      * @var array list of hostname:port
      */
     public $servers = [];
+
+    public $sentinels = [];
     /**
      * @var int default database. RedisCluster has only 1 database with index 0.
      * @see https://redis.io/topics/cluster-spec
@@ -28,6 +30,8 @@ class Connection extends Component
      * @var int read timeout
      */
     public $readTimeout = 2;
+
+    public $retryInterval = 0;
     /**
      * @var bool reuse connection, affects only when cluster is 'none' or 'redis'
      */
@@ -88,6 +92,40 @@ class Connection extends Component
                         $multi->rawcommand(explode(":", $server), 'SELECT', $this->database);
                     }
                     $multi->exec();
+                }
+                break;
+            case 'sentinel':
+                try {
+                    foreach ($this->servers as $server) {
+                        list($host, $port) = explode(":", $server);
+                        $sentinel = new RedisSentinel(
+                            $host,
+                            $port,
+                            $this->timeout,
+                            (bool)$this->persistent,
+                            $this->retryInterval,
+                            (float)$this->readTimeout,
+                        );
+
+                        $master = $sentinel->getMasterAddrByName($this->mastername);
+                        $slaves = $sentinel->slaves($this->mastername);
+
+                        $this->sentinels[] = $sentinel;
+                    }
+
+                    \Yii::error($master);
+                    \Yii::error($slaves);
+                    \Yii::error($this->sentinels);
+
+                    $this->_client = new RedisCluster(
+                        null,
+                        $this->servers,
+                        (float)$this->timeout,
+                        (float)$this->readTimeout,
+                        (bool)$this->persistent,
+                        $this->password
+                    );
+                } catch (RedisClusterException $e) {
                 }
                 break;
             default:
